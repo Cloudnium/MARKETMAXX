@@ -4,10 +4,15 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
+  // Si el despliegue no tiene configuradas las variables de Supabase, NO se tumba el sitio con un 500:
+  // se deja pasar la petición (el login mostrará el error de configuración).
+  const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supaKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supaUrl || !supaKey) return response;
+
+  let supabase: ReturnType<typeof createServerClient>;
+  try {
+    supabase = createServerClient(supaUrl, supaKey, {
       cookies: {
         getAll: () => request.cookies.getAll(),
         setAll: (items) => {
@@ -18,8 +23,10 @@ export async function middleware(request: NextRequest) {
           );
         },
       },
-    }
-  );
+    });
+  } catch {
+    return response;
+  }
 
   let user = null;
   let falloDeRed = false;

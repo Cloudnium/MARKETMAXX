@@ -53,6 +53,9 @@ begin
   -- una sola limpieza a la vez y sin ventas/cierres concurrentes a mitad
   perform pg_advisory_xact_lock(hashtextextended('limpiar_sistema', 0));
   perform set_config('app.mov_ok', 'on', true);
+  -- Supabase activa pg_safeupdate (rechaza UPDATE/DELETE sin WHERE). Solo en ESTA transacción se desactiva,
+  -- para que ninguna sentencia masiva de la limpieza (ni de un trigger) la haga fallar.
+  begin perform set_config('safeupdate.enabled', '0', true); exception when others then null; end;
 
   -- cuántos registros se borran (para informar)
   foreach t in array v_lista loop
@@ -76,13 +79,13 @@ begin
                                    from unnest(v_lista) x where to_regclass(format('public.%I', x)) is not null) || ' restart identity';
 
   -- 3) numeración desde 1 (las series se conservan; las cajas se vuelven a crear al abrir)
-  update public.series_correlativos set correlativo = 0;
+  update public.series_correlativos set correlativo = 0 where correlativo is distinct from 0;
 
   -- 4) stock
   if p_modo = 'movimientos' then
     if p_stock_cero then
-      update public.stock_sede set stock = 0, updated_at = now();
-      update public.almacen_sede set stock = 0, updated_at = now();
+      update public.stock_sede set stock = 0, updated_at = now() where stock is distinct from 0;
+      update public.almacen_sede set stock = 0, updated_at = now() where stock is distinct from 0;
     else
       -- el stock actual queda respaldado por un «saldo inicial» para que stock = suma de movimientos
       insert into public.movimientos_almacen (sede_id, producto_id, tipo, operacion, cantidad, stock_antes, stock_despues, motivo, usuario_nombre)
