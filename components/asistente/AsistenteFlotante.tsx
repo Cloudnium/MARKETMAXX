@@ -4,7 +4,7 @@ import { Bot, MessageCircleQuestion, RotateCcw, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/shared/AuthProvider";
 import { CATEGORIAS, type Pregunta, type Respuesta } from "./preguntas";
-import { RespuestaBot } from "./AsistenteView";
+import { RespuestaBot } from "./ChatAsistente";
 
 type Mensaje = { id: number; rol: "bot"; respuesta: Respuesta } | { id: number; rol: "user"; texto: string };
 

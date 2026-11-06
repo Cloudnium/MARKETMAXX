@@ -5,11 +5,15 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { iniciarConexion, leerConexion, revalidarTodo, sesionVencida, suscribirConexion } from "@/lib/net/conexion";
 import { listaPendientes, quitarPendiente, suscribirPendientes } from "@/lib/net/pendientes";
 import { verificarOperacion } from "@/lib/data/db";
+import type { Pendiente } from "@/lib/net/pendientes";
+
+// Snapshot de servidor ESTABLE (un array nuevo en cada llamada provoca un bucle infinito en useSyncExternalStore).
+const SIN_PENDIENTES: Pendiente[] = [];
 
 const usarConexion = () =>
   useSyncExternalStore(suscribirConexion, leerConexion, () => "online" as const);
 const usarSesionVencida = () => useSyncExternalStore(suscribirConexion, sesionVencida, () => false);
-const usarPendientes = () => useSyncExternalStore(suscribirPendientes, listaPendientes, () => []);
+const usarPendientes = () => useSyncExternalStore(suscribirPendientes, listaPendientes, () => SIN_PENDIENTES);
 
 /**
  * Banner global: sin conexión / servidor caído, reconexión, sesión vencida (sin cerrar nada

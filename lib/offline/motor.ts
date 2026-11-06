@@ -359,7 +359,7 @@ export async function registrarVentaSegura(e: EntradaVentaOffline): Promise<Resu
 // Reconciliación de reservas con el servidor
 // ---------------------------------------------------------------------
 /** Una reserva "huérfana" (se perdió la respuesta al crearla) se devuelve sola pasado este tiempo. */
-export const config = { edadHuerfanaMs: 90_000 };
+export const configMotor = { edadHuerfanaMs: 90_000 };
 
 interface FilaLeaseServidor {
   lease_id: string;
@@ -414,7 +414,7 @@ export async function reconciliarReservas() {
       if (cambio) await a.put("leases", l);
     }
     return [...srv.entries()]
-      .filter(([id, fs]) => !conocidas.has(id) && fs[0].dispositivo === miDisp && Date.now() - Date.parse(fs[0].creado ?? "") >= config.edadHuerfanaMs)
+      .filter(([id, fs]) => !conocidas.has(id) && fs[0].dispositivo === miDisp && Date.now() - Date.parse(fs[0].creado ?? "") >= configMotor.edadHuerfanaMs)
       .map(([id]) => id);
   });
 

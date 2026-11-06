@@ -289,7 +289,7 @@ try {
   ok("E12 el equipo NO recibió la reserva (la creación quedó incierta)", e12 !== "ok", true);
   ok("E12 pero el servidor sí la creó: el stock bajó 4", base12 - (await stock()), 4);
   await dB.ctx.setOffline(false);
-  await dB.ev(() => { window.Market.config.edadHuerfanaMs = 0; });
+  await dB.ev(() => { window.Market.configMotor.edadHuerfanaMs = 0; });
   await dB.ev(() => window.Market.reconciliarReservas());
   ok("E12 al reconciliar, la reserva huérfana volvió al stock", await stock(), base12);
   await invariantes("E12");

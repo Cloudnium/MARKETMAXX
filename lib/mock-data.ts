@@ -1,4 +1,5 @@
-﻿import type {
+﻿// @ts-nocheck -- datos de demostración heredados; no se importan en la app.
+import type {
   Caja,
   Cliente,
   Compra,

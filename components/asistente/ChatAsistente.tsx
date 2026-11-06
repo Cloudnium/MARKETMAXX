@@ -107,7 +107,7 @@ export function ChatAsistente({ compacto = false, altura }: { compacto?: boolean
   );
 }
 
-function RespuestaBot({ r }: { r: Respuesta }) {
+export function RespuestaBot({ r }: { r: Respuesta }) {
   return (
     <div className="space-y-2">
       {r.intro && <p>{r.intro}</p>}
