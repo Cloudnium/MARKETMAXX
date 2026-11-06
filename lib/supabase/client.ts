@@ -78,7 +78,15 @@ export async function fetchResiliente(input: RequestInfo | URL, init: RequestIni
 
 export function createClient() {
   if (!client) {
-    client = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    let url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    let key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    // Solo durante el build/prerender en el servidor: si faltan las variables no se tumba la compilación.
+    // En el navegador NUNCA se usan valores de relleno (así un despliegue mal configurado falla con un error claro).
+    if (typeof window === "undefined" && (!url || !key)) {
+      url = url || "https://placeholder.supabase.co";
+      key = key || "placeholder-anon-key";
+    }
+    client = createBrowserClient(url!, key!, {
       global: { fetch: fetchResiliente },
     });
   }
