@@ -18,7 +18,7 @@ import { HistorialProductosModal } from "./HistorialProductosModal";
 import { useSede } from "@/components/shared/SedeProvider";
 import { useAuth } from "@/components/shared/AuthProvider";
 import { useAsync } from "@/lib/hooks/useAsync";
-import { cambiarEstadoProducto, listarCategorias, listarProductos } from "@/lib/data/productos";
+import { cambiarEstadoProducto, listarCategorias, listarProductosConReservas } from "@/lib/data/productos";
 import type { Producto } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
@@ -27,7 +27,7 @@ const PER_PAGE = 8;
 export function ProductosView() {
   const { filtro, sede, isTodas } = useSede();
   const { can } = useAuth();
-  const prods = useAsync(() => listarProductos(filtro), [filtro], []);
+  const prods = useAsync(() => listarProductosConReservas(filtro), [filtro], []);
   const cats = useAsync(listarCategorias, [], []);
   const productos = prods.data ?? [];
   const categorias = (cats.data ?? []).map((c) => c.nombre);

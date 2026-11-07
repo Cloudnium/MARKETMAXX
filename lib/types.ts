@@ -39,6 +39,8 @@ export interface Producto {
   stock: number;
   /** Unidades reservadas en OTRAS cajas para vender sin internet (no se pueden vender aquí). */
   reservadoOtros?: number;
+  /** Unidades apartadas en cajas (para vender sin internet) que ya van sumadas al `stock` mostrado. */
+  reservado?: number;
   /** Stock en el almacén (bodega) de la sede del producto. */
   stockAlmacen?: number;
   stockMinimo: number;

@@ -6,8 +6,8 @@
  * Cada venta offline se guarda completa en la outbox (IndexedDB) con su request_id y se envía al reconectar
  * con idempotencia (una venta por request_id). Si el servidor la rechaza pasa a CONFLICTOS: nunca se borra.
  */
-import { ErrorApp } from "@/lib/net/errores";
-import { rpc, rpcMut } from "@/lib/data/db";
+import { ErrorApp, MENSAJE_INCIERTO } from "@/lib/net/errores";
+import { consultarOperacion, rpc, rpcMut } from "@/lib/data/db";
 import { alRevalidar, bloqueaEscrituras, iniciarConexion, revalidarTodo, suscribirConexion } from "@/lib/net/conexion";
 import { nuevoId, quitarPendiente, vaciarPendientes } from "@/lib/net/pendientes";
 import type { TicketData } from "@/lib/impresion/ticket";
@@ -348,8 +348,16 @@ export async function registrarVentaSegura(e: EntradaVentaOffline): Promise<Resu
     if (err.tipo === "offline" || (err.tipo === "red" && !err.incierto))
       return { modo: "guardada", motivo: "sin_conexion", venta: await venderOffline(e) }; // no salió nada: venta offline normal
     if (err.incierto && err.requestId) {
-      quitarPendiente(err.requestId); // desde aquí la cola del equipo se encarga (sin «Verificar estado» manual)
-      return { modo: "guardada", motivo: bloqueaEscrituras() ? "sin_conexion" : "sin_confirmar", venta: await venderOffline(e, { requestId: err.requestId, args, tolerante: true }) };
+      let venta: VentaLocal;
+      try {
+        venta = await venderOffline(e, { requestId: err.requestId, args, tolerante: true });
+      } catch {
+        // NO se pudo guardar en la cola del equipo: la operación sigue PENDIENTE con su request_id (el aviso «Verificar estado»
+        // se conserva y repetir la misma venta reutiliza ese id). Quitarla aquí haría que el reintento use un id nuevo y duplique.
+        throw new ErrorApp(err.tipo, MENSAJE_INCIERTO, { status: err.status, incierto: true, requestId: err.requestId });
+      }
+      quitarPendiente(err.requestId); // ya está en la cola del equipo: desde aquí se encarga ella (sin «Verificar estado» manual)
+      return { modo: "guardada", motivo: bloqueaEscrituras() ? "sin_conexion" : "sin_confirmar", venta };
     }
     throw err;
   }
@@ -503,6 +511,19 @@ async function moverAConflicto(it: OutboxItem, err: ErrorApp) {
   });
 }
 
+/** Pregunta al servidor si esta venta de la cola ya está registrada; si lo está, la da por sincronizada con su número real. */
+async function confirmarEnServidor(it: OutboxItem): Promise<boolean> {
+  try {
+    const q = await consultarOperacion(it.requestId);
+    if (q.estado !== "completada" || q.funcion !== it.fn || !q.respuesta) return false;
+    await marcarSincronizada(it, q.respuesta as { id: string; numero: string; total: number });
+    quitarPendiente(it.requestId);
+    return true;
+  } catch {
+    return false; // sin red o sin respuesta: se queda en la cola con su id y se vuelve a preguntar luego
+  }
+}
+
 async function ciclo() {
   if (bloqueaEscrituras()) return;
   sincronizandoLocal = true;
@@ -525,11 +546,24 @@ async function ciclo() {
           pausaSesion = true; // hay que iniciar sesión: la venta se conserva intacta
           break;
         }
-        if (err.tipo === "offline" || err.reintentable || err.incierto) {
+        if (err.codigo === "P0409") {
+          // El servidor YA tiene una operación con este request_id (con otros datos). Nunca es un conflicto de negocio ni se
+          // reenvía con un id nuevo (duplicaría la venta): se confirma con consultar_operacion y, si no se puede, sigue en la cola.
+          if (await confirmarEnServidor(it)) {
+            ultimoSync = Date.now();
+            huboCambios = true;
+          } else {
+            await transaccion(["outbox"], "readwrite", async (a) => a.put("outbox", { ...it, intentos: it.intentos + 1, ultimoError: err.message }));
+          }
+        } else if (err.tipo === "offline" || err.reintentable || err.incierto) {
+          // Esta venta ya es de la cola: el aviso «sin confirmar» que dejó rpcMut se quita para que NO lo adopte (por tener igual
+          // contenido) otra venta nueva y distinta, que quedaría "repetida" y se perdería.
+          quitarPendiente(it.requestId);
           await transaccion(["outbox"], "readwrite", async (a) => a.put("outbox", { ...it, intentos: it.intentos + 1, ultimoError: err.message }));
           break; // sin red / servidor caído: se reintenta luego con la MISMA request_id
+        } else {
+          await moverAConflicto(it, err);
         }
-        await moverAConflicto(it, err);
       }
       await refrescar(false);
     }
@@ -575,7 +609,20 @@ export interface Ajuste {
   items?: { productoId: string; cantidad: number }[];
 }
 
+/** Los conflictos que dejó un P0409 (versiones anteriores) pueden ser ventas que el servidor YA tiene. */
+const ERA_P0409 = /identificador de operaci[oó]n ya se us[oó]/i;
+
 export async function reenviarConflicto(localId: string, ajuste: Ajuste = {}) {
+  const previa = await leer<VentaLocal>("ventas", localId);
+  if (previa?.estado === "conflicto" && previa.conflicto && ERA_P0409.test(previa.conflicto.mensaje)) {
+    // reenviar con un id nuevo duplicaría la venta si el servidor ya la registró: primero se confirma
+    const q = await consultarOperacion(previa.requestId);
+    if (q.estado === "completada" && q.funcion === "registrar_venta" && q.respuesta) {
+      await marcarSincronizada({ requestId: previa.requestId, localId } as OutboxItem, q.respuesta as { id: string; numero: string; total: number });
+      await refrescar();
+      return;
+    }
+  }
   await transaccion(["ventas", "outbox", "conflictos"], "readwrite", async (a) => {
     const v = await a.get<VentaLocal>("ventas", localId);
     if (!v || v.estado !== "conflicto") throw new ErrorApp("negocio", "Esta venta ya no está en conflicto.");

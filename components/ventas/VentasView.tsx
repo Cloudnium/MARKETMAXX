@@ -94,8 +94,14 @@ export function VentasView() {
   // sin conexión solo se puede vender lo RESERVADO para esta caja (el stock real lo decide el servidor)
   // en línea: stock EN VIVO de la sede (lo que vende cualquier cajero ya se refleja aquí en pocos segundos)
   const stockVivo = useStockVivo(sedeUuid);
+  // sin reserva previa: se vende con el último stock conocido menos lo ya vendido sin conexión en este equipo
+  const vendidoSinConexion = new Map<string, number>();
+  if (offline && !leaseSede)
+    for (const v of of.ventas)
+      if (v.estado === "pendiente" && v.sedeId === sedeUuid && !v.leaseId)
+        for (const i of v.items) vendidoSinConexion.set(i.productoId, (vendidoSinConexion.get(i.productoId) ?? 0) + i.cantidad);
   const productosUso = offline
-    ? productosBase.map((p) => ({ ...p, stock: leaseSede ? restante(leaseSede, p.id) : 0 }))
+    ? productosBase.map((p) => ({ ...p, stock: leaseSede ? restante(leaseSede, p.id) : Math.max(0, p.stock - (vendidoSinConexion.get(p.id) ?? 0)) }))
     : aplicarStockVivo(productosBase, stockVivo.vivo, (id) => (leaseSede ? restante(leaseSede, id) : 0));
   const cajasBase = offline
     ? (cajas.data ?? []).length ? cajas.data ?? [] : snap?.cajas ?? []
@@ -320,9 +326,9 @@ export function VentasView() {
             Modo offline con stock reservado: solo puedes vender lo reservado para esta caja. Las ventas se envían solas al volver internet.
           </div>
         ) : (
-          <div role="alert" className="mb-4 flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800" data-testid="aviso-sin-reserva">
+          <div role="status" className="mb-4 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900" data-testid="aviso-offline">
             <WifiOff className="h-5 w-5 shrink-0" />
-            Sin conexión y sin stock reservado: no se puede vender hasta que vuelva internet.
+            Sin conexión: se vende con el último stock conocido. Las ventas se envían solas al volver internet; si otra caja ya vendió ese stock, la venta quedará en conflictos para revisarla.
           </div>
         )
       ) : null}

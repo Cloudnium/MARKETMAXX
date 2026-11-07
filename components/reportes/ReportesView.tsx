@@ -8,7 +8,7 @@ import { ReporteProvider, mapearReporte } from "./ReporteContext";
 import { useSede } from "@/components/shared/SedeProvider";
 import { useAsync } from "@/lib/hooks/useAsync";
 import { cargarReporte, cargarReporteExtra } from "@/lib/data/reportes";
-import { listarProductos } from "@/lib/data/productos";
+import { listarProductosConReservas } from "@/lib/data/productos";
 import { listarStockTotal } from "@/lib/data/almacen";
 import { ReportesMetricas, type ExtraReporte } from "./ReportesMetricas";
 import {
@@ -41,7 +41,7 @@ export function ReportesView() {
     () => (esEgresos ? Promise.resolve(null) : cargarReporteExtra(filtros.sedeId, filtros.desde, filtros.hasta, filtros.tipo)),
     [filtros.sedeId, filtros.desde, filtros.hasta, filtros.tipo, esEgresos],
   );
-  const prods = useAsync(() => listarProductos(filtros.sedeId), [filtros.sedeId], []);
+  const prods = useAsync(() => listarProductosConReservas(filtros.sedeId), [filtros.sedeId], []);
   const extra: ExtraReporte = useMemo(() => {
     const activos = (prods.data ?? []).filter((p) => p.activo);
     return {

@@ -26,3 +26,32 @@ export function aplicarStockVivo(productos: Producto[], vivo: Map<string, StockV
     return { ...p, stock: v.stock + v.mio, reservadoOtros: Math.max(0, v.reservado - v.mio) };
   });
 }
+
+/**
+ * Unidades APARTADAS en cajas (reservas para vender sin internet) por producto, de las sedes indicadas.
+ * El servidor las descuenta del stock libre (`stock_sede`), pero siguen estando físicamente en la tienda:
+ * para mostrar el stock REAL (Productos, Almacén, reportes) hay que sumarlas. Nunca lanza: si una sede no
+ * responde, esa sede aporta 0 y se muestra el stock libre (como antes).
+ */
+export async function obtenerReservadoPorProducto(sedeIds: (string | null | undefined)[]): Promise<Map<string, number>> {
+  const ids = Array.from(new Set(sedeIds.filter((x): x is string => !!x)));
+  const porProducto = new Map<string, number>();
+  await Promise.all(
+    ids.map(async (id) => {
+      try {
+        for (const [productoId, v] of await obtenerStockVivo(id)) if (v.reservado > 0) porProducto.set(productoId, v.reservado);
+      } catch {
+        /* sin dato de reservas: se muestra el stock libre */
+      }
+    })
+  );
+  return porProducto;
+}
+
+/** Stock real de la tienda = stock libre + lo apartado en cajas. El resto del producto queda igual. */
+export function sumarReservado(productos: Producto[], reservado: Map<string, number>): Producto[] {
+  return productos.map((p) => {
+    const r = reservado.get(p.id) ?? 0;
+    return r > 0 ? { ...p, stock: p.stock + r, reservado: r } : p;
+  });
+}

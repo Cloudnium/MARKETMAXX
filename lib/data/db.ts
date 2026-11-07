@@ -97,10 +97,14 @@ const MAX_INTENTOS = 4;
  */
 export function rpcMut<T = unknown>(fn: string, args: Record<string, unknown> = {}, requestId?: string): Promise<T> {
   const huella = huellaDe(fn, args);
-  const previo = enVuelo.get(huella);
-  if (previo) return previo as Promise<T>; // doble clic / doble pestaña lógica: una sola ejecución
-  const p = ejecutarMut<T>(fn, args, huella, requestId).finally(() => enVuelo.delete(huella));
-  enVuelo.set(huella, p);
+  // Con request_id explícito (p. ej. una venta de la cola) la operación se identifica por SU id, no por su contenido:
+  // dos operaciones de igual contenido pero con ids distintos son DOS operaciones y una no debe "absorber" a la otra.
+  // Sin id explícito sigue valiendo el contenido (doble clic / doble pestaña lógica: una sola ejecución).
+  const clave = requestId ? `id:${requestId}` : huella;
+  const previo = enVuelo.get(clave);
+  if (previo) return previo as Promise<T>;
+  const p = ejecutarMut<T>(fn, args, huella, requestId).finally(() => enVuelo.delete(clave));
+  enVuelo.set(clave, p);
   return p;
 }
 

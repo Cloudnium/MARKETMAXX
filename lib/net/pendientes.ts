@@ -117,6 +117,8 @@ export const ETIQUETAS: Record<string, string> = {
   crear_proveedor: "Proveedor",
   guardar_permisos_rol: "Permisos de rol",
   crear_rol: "Nuevo rol",
+  crear_lease_offline: "Reserva de stock para vender sin internet",
+  liquidar_lease: "Devolución de stock reservado",
   backup_aplicar: "Restauración de backup",
   backup_registrar: "Registro de backup",
 };

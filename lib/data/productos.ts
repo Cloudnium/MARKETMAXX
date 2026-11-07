@@ -1,5 +1,6 @@
 import type { Categoria, Producto } from "@/lib/types";
 import { check, db,  num, rpc, rpcMut, traerTodo } from "./db";
+import { obtenerReservadoPorProducto, sumarReservado } from "./stockVivo";
 
 export async function listarCategorias(): Promise<Categoria[]> {
   const rows = check(
@@ -46,6 +47,16 @@ export async function listarProductos(sedeId: string | null): Promise<Producto[]
       sedeNombre: r.sedes?.nombre ?? "",
     };
   });
+}
+
+/**
+ * Igual que `listarProductos`, pero con el stock REAL de la tienda: stock libre + lo apartado en cajas para vender sin
+ * internet. Es la cifra para MOSTRAR (Productos, Almacén, reportes). No usar para reservar ni para vender: ahí manda
+ * el stock libre de `listarProductos` / el stock en vivo.
+ */
+export async function listarProductosConReservas(sedeId: string | null): Promise<Producto[]> {
+  const productos = await listarProductos(sedeId);
+  return sumarReservado(productos, await obtenerReservadoPorProducto(productos.map((p) => p.sedeId)));
 }
 
 const datos = (p: Producto) => ({

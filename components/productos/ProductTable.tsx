@@ -56,7 +56,7 @@ export function ProductTable({
                 </td>
                 <td className="px-4 py-3">
                   <span
-                    title={`Tienda ${producto.stock} · Almacén ${producto.stockAlmacen ?? 0}`}
+                    title={`Tienda ${producto.stock}${producto.reservado ? ` (incluye ${producto.reservado} apartadas en caja para vender sin internet)` : ""} · Almacén ${producto.stockAlmacen ?? 0}`}
                     className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                       total === 0
                         ? "bg-red-100 text-red-700"

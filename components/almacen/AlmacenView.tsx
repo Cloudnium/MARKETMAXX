@@ -25,7 +25,7 @@ import { HistorialTrasladosModal } from "./HistorialTrasladosModal";
 import { ModalAjusteStock } from "./ModalAjusteStock";
 import { useAsync } from "@/lib/hooks/useAsync";
 import { listarStockAlmacen } from "@/lib/data/almacen";
-import { listarProductos } from "@/lib/data/productos";
+import { listarProductosConReservas } from "@/lib/data/productos";
 import { excelStockAlmacen, pdfStockAlmacen, type FilaStock } from "@/lib/export/stock";
 import { formatCurrency } from "@/lib/utils";
 import { useAuth } from "@/components/shared/AuthProvider";
@@ -44,7 +44,7 @@ export function AlmacenView() {
   const [historialOpen, setHistorialOpen] = useState(false);
 
   const stock = useAsync(() => listarStockAlmacen(filtro), [filtro], []);
-  const prods = useAsync(() => listarProductos(filtro), [filtro], []);
+  const prods = useAsync(() => listarProductosConReservas(filtro), [filtro], []);
   const [exportando, setExportando] = useState<"excel" | "pdf" | null>(null);
   const stockSede = stock.data ?? [];
   const tiendas = Array.from(new Set(stockSede.map((s) => s.tienda)));
@@ -76,7 +76,10 @@ export function AlmacenView() {
   const valorAlmacen = lista.reduce((a, p) => a + (p.stockAlmacen ?? 0) * p.precio, 0);
   const sinStockTienda = lista.filter((p) => p.stock === 0).length;
 
-  const totalDe = (s: (typeof stockSede)[number]) => s.stock + (s.stockTienda ?? 0);
+  // Stock de tienda REAL (libre + apartado en cajas); mientras carga, el libre que trae la propia fila
+  const tiendaReal = new Map((prods.data ?? []).map((p) => [p.id, p.stock]));
+  const tiendaDe = (s: (typeof stockSede)[number]) => tiendaReal.get(s.productoId) ?? s.stockTienda ?? 0;
+  const totalDe = (s: (typeof stockSede)[number]) => s.stock + tiendaDe(s);
   const estadoDe = (s: (typeof stockSede)[number]) =>
     totalDe(s) === 0 ? "Sin stock" : totalDe(s) <= s.stockMinimo ? "Stock bajo" : "Disponible";
   const precioDe = new Map(lista.map((p) => [p.id, p.precio]));
@@ -90,7 +93,7 @@ export function AlmacenView() {
         categoria: s.categoria,
         sede: s.tienda,
         almacen: s.stock,
-        tienda: s.stockTienda ?? 0,
+        tienda: tiendaDe(s),
         total: totalDe(s),
         minimo: s.stockMinimo,
         estado: estadoDe(s),
@@ -246,24 +249,24 @@ export function AlmacenView() {
                         {item.stock} {item.unidad}
                       </td>
                       <td className="px-4 py-3 text-center text-gray-500">
-                        {item.stockTienda ?? 0} {item.unidad}
+                        {tiendaDe(item)} {item.unidad}
                       </td>
                       <td className="px-4 py-3 text-center font-bold text-gray-900">
-                        {item.stock + (item.stockTienda ?? 0)} {item.unidad}
+                        {totalDe(item)} {item.unidad}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span
                           className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                            item.stock + (item.stockTienda ?? 0) === 0
+                            totalDe(item) === 0
                               ? "bg-red-100 text-red-700"
-                              : item.stock + (item.stockTienda ?? 0) <= item.stockMinimo
+                              : totalDe(item) <= item.stockMinimo
                               ? "bg-amber-100 text-amber-700"
                               : "bg-green-100 text-green-700"
                           }`}
                         >
-                          {item.stock + (item.stockTienda ?? 0) === 0
+                          {totalDe(item) === 0
                             ? "Sin stock"
-                            : item.stock + (item.stockTienda ?? 0) <= item.stockMinimo
+                            : totalDe(item) <= item.stockMinimo
                             ? "Stock bajo"
                             : "Disponible"}
                         </span>
