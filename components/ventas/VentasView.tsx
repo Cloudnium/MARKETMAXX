@@ -75,7 +75,7 @@ export function VentasView() {
   }, [sedeUuid]);
   useEffect(() => {
     // con internet, se guarda una copia local del catálogo, precios y cajas abiertas para poder seguir vendiendo
-    if (!sedeUuid || offline || !(productos.data ?? []).length || !(cajas.data ?? []).length) return;
+    if (!sedeUuid || offline || productos.loading || cajas.loading || productos.error || cajas.error) return;
     const dato = {
       sedeId: sedeUuid,
       productos: productos.data ?? [],
@@ -85,17 +85,21 @@ export function VentasView() {
       vendedor: perfil?.nombre,
     };
     void guardarSnapshot(dato).then(() => setSnap({ ...dato, guardado: Date.now() }));
-  }, [sedeUuid, offline, productos.data, cajas.data, metodos.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sedeUuid, offline, productos.data, productos.loading, productos.error, cajas.data, cajas.loading, cajas.error, metodos.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const leaseSede = of.leases.find((l) => l.sedeId === sedeUuid && leaseVigente(l)) ?? null;
-  const productosBase = (productos.data ?? []).length ? productos.data ?? [] : snap?.productos ?? [];
+  const productosBase = offline
+    ? (productos.data ?? []).length ? productos.data ?? [] : snap?.productos ?? []
+    : productos.data ?? [];
   // sin conexión solo se puede vender lo RESERVADO para esta caja (el stock real lo decide el servidor)
   // en línea: stock EN VIVO de la sede (lo que vende cualquier cajero ya se refleja aquí en pocos segundos)
   const stockVivo = useStockVivo(sedeUuid);
   const productosUso = offline
     ? productosBase.map((p) => ({ ...p, stock: leaseSede ? restante(leaseSede, p.id) : 0 }))
     : aplicarStockVivo(productosBase, stockVivo.vivo, (id) => (leaseSede ? restante(leaseSede, id) : 0));
-  const cajasBase = (cajas.data ?? []).length ? cajas.data ?? [] : snap?.cajas ?? [];
+  const cajasBase = offline
+    ? (cajas.data ?? []).length ? cajas.data ?? [] : snap?.cajas ?? []
+    : cajas.data ?? [];
   const cajasUso = offline && leaseSede ? cajasBase.filter((c) => c.id === leaseSede.cajaId) : cajasBase;
   const metodosUso = offline && snap ? snap.metodos : metodos.data ?? ["Efectivo"];
 
