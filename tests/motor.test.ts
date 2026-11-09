@@ -287,3 +287,31 @@ describe("POS: «Reintentar» un conflicto", () => {
     expect(idsEnviados().at(-1)).not.toBe(primerId); // id nuevo: la anterior NO se grabó
   });
 });
+
+describe("Sin reserva previa: el stock queda libre y la reserva solo dura el problema de conexión", () => {
+  it("sin internet y SIN reserva se puede vender con el último stock conocido; al volver internet se envía una vez", async () => {
+    h.srv.setOnLine(false);
+    const v = await M.venderOffline(entrada(3));
+    expect(v.leaseId).toBeNull();
+    await flush();
+    h.srv.setOnLine(true);
+    await correr(M.sincronizar());
+    expect((await ventasLocales())[0].estado).toBe("sincronizada");
+    expect(escrituras()).toBe(1);
+  });
+
+  it("sin reserva no deja vender más de lo que había (descuenta lo ya vendido sin conexión)", async () => {
+    h.srv.setOnLine(false);
+    await M.venderOffline(entrada(98));
+    await expect(M.venderOffline(entrada(3))).rejects.toMatchObject({ codigo: "STOCK_OFFLINE_INSUFICIENTE" });
+    await M.venderOffline(entrada(2)); // lo que queda sí
+  });
+
+  it("al sincronizar se devuelve al stock general la reserva que sobró, aunque siga vigente y sin usar", async () => {
+    await h.idb.guardar("leases", lease());
+    h.srv.setOnLine(true);
+    await correr(M.sincronizar());
+    expect(await h.idb.listar("leases")).toHaveLength(0);
+    expect(h.srv.state.llamadas.some((l) => l.rpc === "ejecutar_idempotente" && l.fn === "liquidar_lease")).toBe(true);
+  });
+});

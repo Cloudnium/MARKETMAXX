@@ -148,7 +148,11 @@ export function ModalCierreCaja({
   }, [open]);
 
   if (!caja) return null;
-  const total = caja.ingresos - caja.egresos;
+  // lo que debe haber en la gaveta: apertura + lo cobrado en EFECTIVO - egresos (tarjeta, Yape y transferencia no entran)
+  const efectivo = caja.ingresosEfectivo ?? caja.ingresos;
+  const digital = Math.max(0, caja.ingresos - efectivo);
+  const esperado = Math.round(((caja.montoApertura ?? 0) + efectivo - caja.egresos) * 100) / 100;
+  const diferencia = contado === "" ? null : Math.round((Number(contado) - esperado) * 100) / 100;
 
   return (
     <Modal
@@ -179,17 +183,22 @@ export function ModalCierreCaja({
               <span className="font-semibold text-gray-700">{formatCurrency(caja.montoApertura ?? 0)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Ingresos por ventas</span>
-              <span className="font-semibold text-green-600">+ {formatCurrency(caja.ingresos)}</span>
+              <span className="text-gray-500">Ventas en efectivo</span>
+              <span className="font-semibold text-green-600">+ {formatCurrency(efectivo)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500">Egresos</span>
               <span className="font-semibold text-red-600">- {formatCurrency(caja.egresos)}</span>
             </div>
             <div className="flex justify-between border-t border-dashed border-gray-200 pt-2.5">
-              <span className="font-bold text-gray-900">Monto final</span>
-              <span className="text-lg font-bold text-green-600">{formatCurrency(total)}</span>
+              <span className="font-bold text-gray-900">Efectivo que debe haber</span>
+              <span className="text-lg font-bold text-green-600">{formatCurrency(esperado)}</span>
             </div>
+            {digital > 0 && (
+              <p className="text-xs text-gray-400">
+                Además hubo {formatCurrency(digital)} en tarjeta, Yape o transferencia (no entra a la gaveta). Total vendido: {formatCurrency(caja.ingresos)}.
+              </p>
+            )}
           </div>
         </div>
         <div>
@@ -197,6 +206,11 @@ export function ModalCierreCaja({
             Efectivo contado (S/) <span className="font-normal text-gray-400">· opcional, para calcular diferencia</span>
           </label>
           <input type="number" min={0} value={contado} onChange={(e) => setContado(e.target.value)} className={inputClass} />
+          {diferencia !== null && (
+            <p className={`mt-1 text-xs font-semibold ${diferencia === 0 ? "text-green-600" : "text-amber-600"}`}>
+              {diferencia === 0 ? "Cuadra exacto." : `Diferencia: ${diferencia > 0 ? "+" : "-"} ${formatCurrency(Math.abs(diferencia))} (${diferencia > 0 ? "sobra" : "falta"})`}
+            </p>
+          )}
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Observaciones</label>
@@ -301,7 +315,7 @@ export function ModalEgresosCaja({
   onClose: () => void;
   onDone: () => void;
 }) {
-  const { can } = useAuth();
+  const { can, perfil } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [concepto, setConcepto] = useState("");
   const [monto, setMonto] = useState("");
@@ -351,7 +365,7 @@ export function ModalEgresosCaja({
           <span className="text-lg font-bold text-red-600">{formatCurrency(total)}</span>
         </div>
 
-        {caja.estado === "abierta" && can("cajas.egresos") && (
+        {caja.estado === "abierta" && can("cajas.egresos") && (!caja.usuarioId || caja.usuarioId === perfil?.id || can("cajas.supervisar")) && (
           <button
             onClick={() => setShowForm((v) => !v)}
             className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"

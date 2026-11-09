@@ -53,6 +53,8 @@ begin
   -- una sola limpieza a la vez y sin ventas/cierres concurrentes a mitad
   perform pg_advisory_xact_lock(hashtextextended('limpiar_sistema', 0));
   perform set_config('app.mov_ok', 'on', true);
+  -- el guard del almacén usa otra bandera: sin esto, poner el stock del almacén en 0 falla
+  perform set_config('app.bod_ok', 'on', true);
   -- Supabase activa pg_safeupdate (rechaza UPDATE/DELETE sin WHERE). Solo en ESTA transacción se desactiva,
   -- para que ninguna sentencia masiva de la limpieza (ni de un trigger) la haga fallar.
   begin perform set_config('safeupdate.enabled', '0', true); exception when others then null; end;

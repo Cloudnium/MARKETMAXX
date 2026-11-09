@@ -235,7 +235,14 @@ export async function venderOffline(e: EntradaVentaOffline, op: OpcionesGuardado
       .filter((l) => l.sedeId === e.sedeId && l.cajaId === e.cajaId && leaseVigente(l))
       .sort((x, y) => y.creadoMs - x.creadoMs);
     const lease = leases[0];
-    if (!lease && !op.tolerante) throw new ErrorApp("negocio", "Sin reserva de stock vigente para esta caja: no se puede vender sin conexión.", { codigo: "SIN_LEASE" });
+    // Sin reserva previa (ya no se aparta stock mientras hay internet): se vende contra el último stock conocido, descontando lo
+    // ya vendido sin conexión en este equipo. Al volver internet el servidor decide; si otra caja se llevó ese stock, queda en CONFLICTOS.
+    const vendidoSinReserva = new Map<string, number>();
+    if (!lease && !op.tolerante) {
+      for (const v of await a.all<VentaLocal>("ventas"))
+        if (v.estado === "pendiente" && v.sedeId === e.sedeId && !v.leaseId)
+          for (const i of v.items) vendidoSinReserva.set(i.productoId, (vendidoSinReserva.get(i.productoId) ?? 0) + i.cantidad);
+    }
     // un pedido ya enviado en línea solo consume la reserva con la que se envió
     const usaLease = !!lease && (!op.args || op.args.p_lease === lease.leaseId);
     const consumoLease: Record<string, number> = {};
@@ -252,6 +259,10 @@ export async function venderOffline(e: EntradaVentaOffline, op: OpcionesGuardado
           lease!.items[productoId].usado += toma;
           consumoLease[productoId] = toma;
         }
+      } else if (!lease && !op.tolerante) {
+        const quedan = Math.max(0, p.stock - (vendidoSinReserva.get(productoId) ?? 0));
+        if (cantidad > quedan)
+          throw new ErrorApp("negocio", `Stock insuficiente de "${p.nombre}": quedan ${quedan} según el último dato con internet.`, { codigo: "STOCK_OFFLINE_INSUFICIENTE" });
       }
       return { productoId, nombre: p.nombre, cantidad, precio: p.precio };
     });
@@ -582,15 +593,13 @@ async function ciclo() {
 }
 
 /**
- * Con todo enviado, devuelve al pool el stock no vendido de las reservas que se USARON sin internet o que ya
- * vencieron. Una reserva vigente sin uso se mantiene: es la que protege a la caja si luego se cae la red.
+ * Con todo enviado y con internet, devuelve al stock general lo no vendido de TODAS las reservas de este equipo
+ * (usadas o no, vigentes o vencidas): la reserva solo existe mientras dura el problema de conexión.
  */
 async function liquidarReservas() {
   const outbox = await listar<OutboxItem>("outbox");
   for (const l of await listar<LeaseLocal>("leases")) {
     if (outbox.some((o) => o.args.p_lease === l.leaseId)) continue; // aún hay ventas que lo usan
-    const sinUso = Object.values(l.items).every((i) => i.usado === 0);
-    if (sinUso && leaseVigente(l)) continue;
     try {
       await liquidarUna(l);
     } catch {

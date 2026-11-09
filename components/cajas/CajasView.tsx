@@ -24,10 +24,12 @@ const comoCaja = (s: SesionCaja): Caja => ({
   sedeId: s.sedeId,
   estado: s.estado,
   ingresos: s.ingresos,
+  ingresosEfectivo: s.ingresosEfectivo,
   egresos: s.egresos,
   ventas: s.ventas,
   fechaApertura: s.fechaApertura,
   usuario: s.usuario,
+  usuarioId: s.usuarioId,
   sesionId: s.id,
   montoApertura: s.montoApertura,
 });
@@ -36,7 +38,7 @@ type ModalType = "abrir" | "cierre" | "egresos" | null;
 
 export function CajasView() {
   const { filtro, sede, sedes, isTodas, sedeOperativa } = useSede();
-  const { can } = useAuth();
+  const { can, perfil } = useAuth();
   const [query, setQuery] = useState("");
   const [fecha, setFecha] = useState(hoyLima());
   const [modal, setModal] = useState<ModalType>(null);
@@ -58,7 +60,8 @@ export function CajasView() {
     [sesiones, query]
   );
 
-  const movs = useAsync(() => listarMovimientosSesiones(filtered), [filtered.map((s) => s.id).join(",")], []);
+  // se vuelve a cargar cuando cambian los totales del turno (nuevo egreso, venta, anulación…), no solo la lista de turnos
+  const movs = useAsync(() => listarMovimientosSesiones(filtered), [filtered.map((s) => `${s.id}:${s.ventas}:${s.egresos}:${s.ingresos}`).join(",")], []);
   const cajaDe = new Map(sesiones.map((s) => [s.id, s.caja]));
 
   const ingresosTotales = filtered.reduce((a, s) => a + s.ingresos, 0);
@@ -89,7 +92,13 @@ export function CajasView() {
   const refrescar = () => {
     setModal(null);
     lista.reload();
+    movs.reload();
   };
+
+  // el turno elegido siempre con los datos más recientes de la lista (no la copia de cuando se hizo clic)
+  const turno = selected ? sesiones.find((s) => s.id === selected.id) ?? selected : null;
+  // cerrar o registrar egresos: solo en la caja propia (un supervisor puede en cualquiera); el servidor lo exige igual
+  const puedeOperar = (s: SesionCaja) => !s.usuarioId || s.usuarioId === perfil?.id || can("cajas.supervisar");
 
   const metrics = [
     { label: "Cajas Abiertas", value: filtered.filter((s) => s.estado === "abierta").length.toString(), icon: Wallet, bg: "bg-green-100", color: "text-green-600" },
@@ -175,7 +184,7 @@ export function CajasView() {
                 onTicket={() => desdeTarjeta(s, ticket)}
                 onDescargar={() => desdeTarjeta(s, descargar)}
                 onCerrar={
-                  can("cajas.cerrar")
+                  can("cajas.cerrar") && puedeOperar(s)
                     ? () => {
                         setSelected(s);
                         setModal("cierre");
@@ -231,24 +240,27 @@ export function CajasView() {
 
       <ModalAbrirMiCaja open={modal === "abrir"} sede={sedeOperativa} onClose={() => setModal(null)} onDone={refrescar} />
       <DetalleCajaModal
-        sesion={selected}
+        sesion={turno}
         open={detalleOpen}
         onClose={() => setDetalleOpen(false)}
-        onTicket={() => (selected ? ticket(selected) : Promise.resolve())}
-        onDescargar={() => (selected ? descargar(selected) : Promise.resolve())}
-        onEgreso={can("cajas.egresos") ? () => setModal("egresos") : undefined}
+        onTicket={() => (turno ? ticket(turno) : Promise.resolve())}
+        onDescargar={() => (turno ? descargar(turno) : Promise.resolve())}
+        onEgreso={can("cajas.egresos") && turno && puedeOperar(turno) ? () => setModal("egresos") : undefined}
       />
       <ModalCierreCaja
-        caja={selected ? comoCaja(selected) : null}
+        caja={turno ? comoCaja(turno) : null}
         open={modal === "cierre"}
         onClose={() => setModal(null)}
         onDone={refrescar}
       />
       <ModalEgresosCaja
-        caja={selected ? comoCaja(selected) : null}
+        caja={turno ? comoCaja(turno) : null}
         open={modal === "egresos"}
         onClose={() => setModal(null)}
-        onDone={() => lista.reload()}
+        onDone={() => {
+          lista.reload();
+          movs.reload();
+        }}
       />
     </div>
   );

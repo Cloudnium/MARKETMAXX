@@ -39,7 +39,7 @@ export interface Producto {
   stock: number;
   /** Unidades reservadas en OTRAS cajas para vender sin internet (no se pueden vender aquí). */
   reservadoOtros?: number;
-  /** Unidades apartadas en cajas (para vender sin internet) que ya van sumadas al `stock` mostrado. */
+  /** Unidades apartadas en cajas para vender sin internet. Solo informativo: ya están incluidas en `stock` cuando se carga con reservas. */
   reservado?: number;
   /** Stock en el almacén (bodega) de la sede del producto. */
   stockAlmacen?: number;
@@ -94,10 +94,14 @@ export interface Caja {
   sedeId?: string;
   estado: "abierta" | "cerrada";
   ingresos: number;
+  /** Parte de los ingresos cobrada en efectivo (lo que entra a la gaveta). */
+  ingresosEfectivo?: number;
   egresos: number;
   ventas: number;
   fechaApertura: string;
   usuario: string;
+  /** Quién abrió la caja (para que cada cajero solo venda en la suya). */
+  usuarioId?: string | null;
   sesionId?: string | null;
   montoApertura?: number;
 }
@@ -131,6 +135,8 @@ export interface SesionCaja {
   sedeId: string;
   sede: string;
   usuario: string;
+  /** Quién abrió el turno (solo él o un supervisor puede cerrarlo o registrar egresos). */
+  usuarioId?: string | null;
   fechaApertura: string;
   fechaCierre: string | null;
   estado: "abierta" | "cerrada";

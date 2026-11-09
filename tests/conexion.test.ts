@@ -18,6 +18,17 @@ describe("Stock en vivo", () => {
   });
 });
 
+describe("Stock real para Productos / Almacén", () => {
+  it("suma lo apartado en cajas al stock libre (20 con 4 apartadas: libre 14 + 4 = 18) y no toca lo demás", async () => {
+    const { sumarReservado } = await import("@/lib/data/stockVivo");
+    const r = sumarReservado([prod("a", 14), prod("b", 5)], new Map([["a", 4]]));
+    expect(r[0].stock).toBe(18);
+    expect(r[0].reservado).toBe(4);
+    expect(r[1].stock).toBe(5); // sin reservas: igual
+    expect(r[1].reservado).toBeUndefined();
+  });
+});
+
 describe("Detección de conexión y venta cortada", () => {
   beforeEach(() => {
     vi.resetModules();

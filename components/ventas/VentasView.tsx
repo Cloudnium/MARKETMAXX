@@ -37,7 +37,7 @@ function mismoCodigo(a: string, b: string) {
 }
 
 export function VentasView() {
-  const { perfil } = useAuth();
+  const { perfil, can } = useAuth();
   const { sedeOperativa, sede } = useSede();
   const sedeUuid = sedeOperativa?.id ?? null;
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -106,7 +106,10 @@ export function VentasView() {
   const cajasBase = offline
     ? (cajas.data ?? []).length ? cajas.data ?? [] : snap?.cajas ?? []
     : cajas.data ?? [];
-  const cajasUso = offline && leaseSede ? cajasBase.filter((c) => c.id === leaseSede.cajaId) : cajasBase;
+  const cajasDeLease = offline && leaseSede ? cajasBase.filter((c) => c.id === leaseSede.cajaId) : cajasBase;
+  // cada cajero vende solo en la caja que abrió él (los supervisores pueden operar cualquiera); el servidor lo exige igual
+  const soloMisCajas = !can("cajas.supervisar");
+  const cajasUso = cajasDeLease.filter((c) => !soloMisCajas || !c.usuarioId || c.usuarioId === perfil?.id);
   const metodosUso = offline && snap ? snap.metodos : metodos.data ?? ["Efectivo"];
 
   // Al cambiar de sede el carrito deja de ser válido

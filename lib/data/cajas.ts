@@ -18,6 +18,7 @@ export async function listarCajas(sedeId: string | null): Promise<Caja[]> {
     ventas: num(r.ventas),
     fechaApertura: r.fecha_apertura ?? "",
     usuario: r.usuario_nombre ?? "—",
+    usuarioId: r.usuario_id ?? null,
     sesionId: r.sesion_id,
     montoApertura: num(r.monto_apertura),
   }));
@@ -72,6 +73,7 @@ export async function listarSesiones(sedeId: string | null, desde: string, hasta
     sedeId: r.sede_id,
     sede: r.sede_nombre,
     usuario: r.usuario_nombre ?? "—",
+    usuarioId: r.usuario_id ?? null,
     fechaApertura: r.fecha_apertura,
     fechaCierre: r.fecha_cierre ?? null,
     estado: r.estado,

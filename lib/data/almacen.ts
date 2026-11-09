@@ -1,6 +1,7 @@
 import type { MovimientoAlmacen, MovimientoBodega, StockItem, TipoMovimiento } from "@/lib/types";
 import { limitesRango } from "@/lib/fechas";
 import { check, db,  num, rpc, rpcMut, traerTodo, type FiltroFechas } from "./db";
+import { obtenerReservadoPorProducto } from "./stockVivo";
 
 /** Stock de la TIENDA (lo que se vende). Solo productos de la sede consultada. */
 export async function listarStock(sedeId: string | null): Promise<StockItem[]> {
@@ -276,8 +277,13 @@ export async function listarMovimientosBodega(
  */
 export async function listarStockTotal(sedeId: string | null): Promise<StockItem[]> {
   const [tienda, almacen] = await Promise.all([listarStock(sedeId), listarStockAlmacen(sedeId)]);
+  // lo apartado en cajas para vender sin internet sigue siendo stock de la tienda (el servidor solo lo descuenta del stock libre)
+  const reservado = await obtenerReservadoPorProducto(tienda.map((t) => t.sedeId));
   const mapa = new Map<string, StockItem>();
-  for (const t of tienda) mapa.set(t.id, { ...t, stock: t.stock, stockTienda: t.stock, stockAlmacen: 0 });
+  for (const t of tienda) {
+    const enTienda = t.stock + (reservado.get(t.productoId) ?? 0);
+    mapa.set(t.id, { ...t, stock: enTienda, stockTienda: enTienda, stockAlmacen: 0 });
+  }
   for (const a of almacen) {
     const base = mapa.get(a.id);
     if (base) mapa.set(a.id, { ...base, stock: base.stockTienda! + a.stock, stockAlmacen: a.stock });

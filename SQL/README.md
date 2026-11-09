@@ -43,6 +43,8 @@ Todo lo necesario para recrear la BD desde cero. Los scripts son **idempotentes*
 | `26_ventas_concurrentes_offline.sql` | Ventas simultáneas sin sobreventa: lock ordenado, reservas de stock offline por caja (leases), liquidación/expiración automática, reintento de deadlock |
 | `27_stock_vivo_y_venta_segura.sql` | Ventas a prueba de cortes de wifi (la venta en línea usa primero la reserva de su caja y se reenvía con el mismo pedido), reservas huérfanas recuperables, `stock_sede_vivo` (stock en tiempo real) y Realtime para `stock_sede` |
 | `28_limpiar_sistema.sql` | Limpiador de datos del sistema (solo Administrador, con frase de confirmación): modo «movimientos» o «total». Se usa desde Backup → Limpiar sistema |
+| `29_venta_solo_en_mi_caja.sql` | Un cajero solo puede vender en la caja que abrió él (un supervisor, en cualquiera) |
+| `30_cierre_caja_seguro.sql` | Cierre de caja sin carreras (ninguna venta/egreso se guarda tras el cierre), tarjetas de turno siempre al día tras anular/cambiar método, reservas offline liberadas al cerrar, `abrir_mi_caja` reutiliza cajas cerradas y `caja_totales` respeta la sede |
 | `99_LIMPIAR_BASE_DE_DATOS.sql` | Script manual opcional (editor SQL) para limpiar la base; no es una migración, ejecutar solo si se desea limpiar |
 | `00_RESET_solo_desarrollo.sql` | **Peligro**: borra todo el esquema (solo desarrollo) |
 
