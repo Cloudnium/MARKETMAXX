@@ -45,6 +45,7 @@ Todo lo necesario para recrear la BD desde cero. Los scripts son **idempotentes*
 | `28_limpiar_sistema.sql` | Limpiador de datos del sistema (solo Administrador, con frase de confirmación): modo «movimientos» o «total». Se usa desde Backup → Limpiar sistema |
 | `29_venta_solo_en_mi_caja.sql` | Un cajero solo puede vender en la caja que abrió él (un supervisor, en cualquiera) |
 | `30_cierre_caja_seguro.sql` | Cierre de caja sin carreras (ninguna venta/egreso se guarda tras el cierre), tarjetas de turno siempre al día tras anular/cambiar método, reservas offline liberadas al cerrar, `abrir_mi_caja` reutiliza cajas cerradas y `caja_totales` respeta la sede |
+| `31_auditoria.sql` | Auditoría solo para administradores (RLS + nivel 100), más tablas auditadas (cajas, turnos, gastos, ventas, egresos), búsqueda/resumen/opciones y registro de descargas. Idempotente. |
 | `99_LIMPIAR_BASE_DE_DATOS.sql` | Script manual opcional (editor SQL) para limpiar la base; no es una migración, ejecutar solo si se desea limpiar |
 | `00_RESET_solo_desarrollo.sql` | **Peligro**: borra todo el esquema (solo desarrollo) |
 

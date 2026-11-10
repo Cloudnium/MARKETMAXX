@@ -23,6 +23,7 @@ const titles: Record<View, string> = {
   asistente: "Asistente",
   impresion: "Impresión",
   backup: "Backup",
+  auditoria: "Auditoría",
 };
 
 export function DashboardLayout({

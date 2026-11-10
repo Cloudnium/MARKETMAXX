@@ -18,6 +18,7 @@ import { EgresosView } from "@/components/egresos/EgresosView";
 import { ReportesView } from "@/components/reportes/ReportesView";
 import { AsistenteView } from "@/components/asistente/AsistenteView";
 import { BackupView } from "@/components/backup/BackupView";
+import { AuditoriaView } from "@/components/auditoria/AuditoriaView";
 import { ImpresionView } from "@/components/impresion/ImpresionView";
 import { SedesView } from "@/components/sedes/SedesView";
 
@@ -36,6 +37,7 @@ const views: Record<View, React.ComponentType> = {
   asistente: AsistenteView,
   impresion: ImpresionView,
   backup: BackupView,
+  auditoria: AuditoriaView,
 };
 
 export default function Home() {

@@ -13,6 +13,7 @@ import {
   Package,
   Package2,
   Printer,
+  ScrollText,
   ShoppingCart,
   Truck,
   UserStar,
@@ -36,7 +37,8 @@ export type View =
   | "sedes"
   | "asistente"
   | "impresion"
-  | "backup";
+  | "backup"
+  | "auditoria";
 
 interface NavItem {
   key: View;
@@ -44,6 +46,8 @@ interface NavItem {
   icon: React.ElementType;
   /** Permiso requerido para ver la opción (varios = basta uno). */
   permiso: string | string[];
+  /** Solo la ven los administradores (nivel 100). */
+  soloAdmin?: boolean;
 }
 
 interface NavSection {
@@ -87,6 +91,7 @@ const sections: NavSection[] = [
       { key: "asistente", label: "Asistente", icon: MessageSquare, permiso: "asistente.usar" },
       { key: "impresion", label: "Impresión", icon: Printer, permiso: "impresion.usar" },
       { key: "backup", label: "Backup", icon: Database, permiso: "backup.usar" },
+      { key: "auditoria", label: "Auditoría", icon: ScrollText, permiso: "auditoria.ver", soloAdmin: true },
     ],
   },
 ];
@@ -116,7 +121,8 @@ export function Sidebar({
     .map((section) => ({
       ...section,
       items: section.items.filter((item) =>
-        Array.isArray(item.permiso) ? item.permiso.some(can) : can(item.permiso)
+        (!item.soloAdmin || (perfil?.rolNivel ?? 0) >= 100) &&
+        (Array.isArray(item.permiso) ? item.permiso.some(can) : can(item.permiso))
       ),
     }))
     .filter((section) => section.items.length > 0);
