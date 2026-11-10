@@ -2577,8 +2577,8 @@ create table if not exists public.movimientos_bodega (
   sede_id             uuid not null references public.sedes(id)     on delete restrict,
   producto_id         uuid not null references public.productos(id) on delete restrict,
   tipo                text not null check (tipo in ('entrada','salida','ajuste')),
-  operacion           text not null check (operacion in (
-                         'ingreso_manual','ajuste_manual','conteo_fisico','merma',
+   operacion           text not null check (operacion in (
+                         'stock_inicial','ingreso_manual','ajuste_manual','conteo_fisico','merma',
                          'a_tienda','desde_tienda','envio_sede','recepcion_sede')),
   cantidad            numeric(12,3) not null check (cantidad <> 0),
   stock_antes         numeric(12,3) not null,
